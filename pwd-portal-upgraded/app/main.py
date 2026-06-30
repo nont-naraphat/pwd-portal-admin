@@ -285,6 +285,15 @@ def admin_create(body: AdminCreateIn, pwdsession: str = Cookie(None)):
         raise HTTPException(400, f"สร้างบัญชีไม่สำเร็จ: {e}")
 
 
+@app.post("/api/admin/delete-user")
+def admin_delete(body: AdminActionIn, pwdsession: str = Cookie(None)):
+    admin_user = _require_admin(pwdsession)
+    target = (body.username or "").split("@")[0].split("\\")[-1]
+    if target.lower() == admin_user.lower():
+        raise HTTPException(400, "ไม่สามารถลบบัญชีของตนเองได้")
+    return _admin_do(ad.admin_delete_user, body.username)
+
+
 @app.post("/api/admin/notify")
 def admin_notify(body: AdminActionIn, pwdsession: str = Cookie(None)):
     _require_admin(pwdsession)
