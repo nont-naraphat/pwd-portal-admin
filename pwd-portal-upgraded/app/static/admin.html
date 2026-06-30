@@ -414,6 +414,7 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-org" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="7" rx="1.5"/><path d="M12 10v4M7 21v-4a2 2 0 012-2h6a2 2 0 012 2v4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m1 0v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7"/><path d="M10 11v6M14 11v6"/></symbol>
 </svg>
 
 <!-- ============ ADMIN APP ============ -->
@@ -571,6 +572,25 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
   </div>
 </div>
 
+<!-- MODAL: ยืนยันลบบัญชี -->
+<div class="modal" id="m-delete">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head"><span class="ic" style="background:var(--crit-bg);color:var(--crit)"><svg class="icon" style="width:20px;height:20px"><use href="#i-trash"/></svg></span>
+      <div><h3>ลบบัญชีถาวร</h3><p id="del-sub">–</p></div></div>
+    <div class="modal-body">
+      <div class="banner" style="background:var(--crit-bg);border-color:var(--crit-line);color:#7c2018">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <span>การลบบัญชีออกจาก Active Directory <b>ไม่สามารถกู้คืนได้</b> ข้อมูล สิทธิ์ และอีเมลที่ผูกไว้จะถูกลบทั้งหมด</span></div>
+      <div class="field" style="margin-top:16px"><label>พิมพ์ชื่อผู้ใช้เพื่อยืนยัน: <b class="mono" id="del-confirm-name">–</b></label>
+        <input id="del-confirm" type="text" class="mono" placeholder="พิมพ์ชื่อผู้ใช้ให้ตรง" oninput="checkDelConfirm()"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" style="width:auto" onclick="closeModal('m-delete')">ยกเลิก</button>
+      <button class="btn btn-crit" id="del-btn" style="width:auto;opacity:.5;pointer-events:none" onclick="submitDelete()"><svg class="icon" style="width:16px;height:16px"><use href="#i-trash"/></svg> ลบบัญชีถาวร</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"><svg class="icon"><use href="#i-circle-check"/></svg><span id="toast-msg"></span></div>
 
 <script>
@@ -617,6 +637,7 @@ function pwBadge(u){
 }
 function matchFilter(u,f){
   if(f==='all')return true;
+  if(f==='active')return u.enabled&&!u.locked;
   if(f==='locked')return u.locked;
   if(f==='disabled')return!u.enabled;
   if(f==='expired')return u.enabled&&!u.pwd_never_expires&&(u.pwd_expired||(u.days_left!=null&&u.days_left<=0));
@@ -665,7 +686,7 @@ function renderAttention(){
   }).join('')+'</tbody></table>';
 }
 function renderFilters(){
-  const defs=[['all','ทั้งหมด'],['locked','ถูกล็อก'],['expired','หมดอายุ'],['soon','ใกล้หมด'],['disabled','ปิดใช้งาน'],['never','ไม่หมดอายุ']];
+  const defs=[['all','ทั้งหมด'],['active','ใช้งานอยู่'],['locked','ถูกล็อก'],['expired','หมดอายุ'],['soon','ใกล้หมด'],['disabled','ปิดใช้งาน'],['never','ไม่หมดอายุ']];
   document.getElementById('fpills').innerHTML=defs.map(([f,l])=>{
     const n=USERS.filter(u=>matchFilter(u,f)).length;
     return `<button class="fpill ${FILTER===f?'on':''}" onclick="setFilter('${f}')">${l}<span class="ct">${n}</span></button>`;
@@ -754,6 +775,7 @@ function openDrawer(username){
       <button class="btn btn-ghost" onclick="doForce('${u.username}')"><svg class="icon" style="width:16px;height:16px"><use href="#i-rotate"/></svg> บังคับเปลี่ยน</button>
       <button class="btn ${dis?'btn-crit':'btn-ghost'} full" onclick="doToggle('${u.username}',${dis?'false':'true'})"><svg class="icon" style="width:16px;height:16px"><use href="#i-power"/></svg> ${dis?'ปิดใช้งานบัญชี':'เปิดใช้งานบัญชี'}</button>
       <button class="btn btn-ghost full" onclick="doNotify('${u.username}')"><svg class="icon" style="width:16px;height:16px"><use href="#i-send"/></svg> ส่งแจ้งเตือน Lark</button>
+      <button class="btn btn-crit full" onclick="openDelete('${u.username}')"><svg class="icon" style="width:16px;height:16px"><use href="#i-trash"/></svg> ลบบัญชีถาวร</button>
     </div>`;
   document.getElementById('scrim').classList.add('on');
   document.getElementById('drawer').classList.add('on');
@@ -785,6 +807,27 @@ async function doNotify(username){
   if(DEMO){toast('✅ ส่งการ์ดเตือนเข้า Lark ให้ '+username+' แล้ว (ตัวอย่าง)');return;}
   toast('กำลังส่งเข้า Lark…');
   try{const d=await post('/api/admin/notify',{username});toast('✅ ส่งเข้า Lark แล้ว ('+(d.email||'')+')');}catch(e){toast('❌ '+e.message);}
+}
+
+/* delete modal */
+function openDelete(username){const u=USERS.find(x=>x.username===username);if(!u)return;CUR=u;
+  document.getElementById('del-sub').textContent='สำหรับ '+u.display_name+' ('+u.username+')';
+  document.getElementById('del-confirm-name').textContent=u.username;
+  document.getElementById('del-confirm').value='';
+  checkDelConfirm();
+  document.getElementById('m-delete').classList.add('on');
+}
+function checkDelConfirm(){
+  const ok=document.getElementById('del-confirm').value.trim()===CUR.username;
+  const b=document.getElementById('del-btn');
+  b.style.opacity=ok?'1':'.5';
+  b.style.pointerEvents=ok?'auto':'none';
+}
+async function submitDelete(){
+  const username=CUR.username;
+  if(document.getElementById('del-confirm').value.trim()!==username){toast('❌ ชื่อผู้ใช้ยืนยันไม่ตรง');return;}
+  if(DEMO){USERS=USERS.filter(x=>x.username!==username);closeModal('m-delete');closeDrawer();render();toast('🗑️ ลบบัญชี '+username+' แล้ว (ตัวอย่าง)');return;}
+  try{await post('/api/admin/delete-user',{username});closeModal('m-delete');closeDrawer();loadUsers();toast('🗑️ ลบบัญชี '+username+' แล้ว');}catch(e){toast('❌ '+e.message);}
 }
 
 /* reset modal */
