@@ -478,6 +478,7 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
           <table class="tbl">
             <thead><tr>
               <th data-sort="display_name">ผู้ใช้ <span class="ar">↕</span></th>
+              <th data-sort="mail">อีเมล <span class="ar">↕</span></th>
               <th class="col-dept" data-sort="department">แผนก / ตำแหน่ง <span class="ar">↕</span></th>
               <th class="col-ou" data-sort="ou">หน่วยงาน (OU) <span class="ar">↕</span></th>
               <th data-sort="state">สถานะบัญชี <span class="ar">↕</span></th>
@@ -605,6 +606,7 @@ function badge(u){
   return{c:'ok',t:'ใช้งานปกติ'};
 }
 function pwBadge(u){
+  if(u.must_change)return{c:'info',t:'ต้องเปลี่ยนรหัส'};
   if(u.pwd_never_expires)return{c:'info',t:'ไม่หมดอายุ'};
   if(u.pwd_expired||(u.days_left!=null&&u.days_left<=0))return{c:'crit',t:'หมดอายุแล้ว'};
   if(u.days_left!=null&&u.days_left<=7)return{c:'warn',t:'เหลือ '+u.days_left+' วัน'};
@@ -685,12 +687,13 @@ function render(){
     return(x>y?1:x<y?-1:0)*SORT.dir;
   });
   const tb=document.getElementById('tbody');
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="6"><div class="tbl-empty"><svg class="icon"><use href="#i-search"/></svg><div>ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข</div></div></td></tr>`;}
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="7"><div class="tbl-empty"><svg class="icon"><use href="#i-search"/></svg><div>ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข</div></div></td></tr>`;}
   else tb.innerHTML=rows.map(u=>{
     const ab=badge(u),pb=pwBadge(u);
     return `<tr onclick="openDrawer('${u.username}')">
       <td><div class="uc"><span class="avatar">${_ini(u.display_name)}</span>
         <span><div class="nm">${u.display_name}</div><div class="un">${u.username}</div></span></div></td>
+      <td class="muted mono" style="font-size:12px">${u.mail||'-'}</td>
       <td class="col-dept"><div>${u.department||'<span class="muted">-</span>'}</div><div class="un" style="font-family:inherit">${u.title||''}</div></td>
       <td class="col-ou muted">${u.ou||'-'}</td>
       <td><span class="sb ${ab.c}"><span class="dt"></span>${ab.t}</span></td>
