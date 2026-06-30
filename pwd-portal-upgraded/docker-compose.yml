@@ -1,0 +1,52 @@
+services:
+  app:
+    build: .
+    image: pwd-portal-v2:latest          # คนละ image กับตัวเดิม (เดิม=pwd-portal:latest)
+    container_name: pwd-portal-v2          # คนละชื่อกับตัวเดิม (เดิม=pwd-portal) กันชนกัน
+    restart: unless-stopped
+    environment:
+      # --- Active Directory ---
+      - AD_HOST=${AD_HOST}
+      - AD_PORT=${AD_PORT:-636}
+      - AD_USE_SSL=${AD_USE_SSL:-true}
+      - AD_BASE_DN=${AD_BASE_DN}
+      - AD_USER_OU=${AD_USER_OU}
+      - AD_UPN_SUFFIX=${AD_UPN_SUFFIX}
+      - AD_BIND_USER=${AD_BIND_USER}
+      - AD_BIND_PASSWORD=${AD_BIND_PASSWORD}
+      - AD_CA_CERT=/certs/bearhouse-ca.crt
+      - AD_TLS_VALIDATE=${AD_TLS_VALIDATE:-required}
+      # --- Admin Console (ใหม่) ---
+      - ADMIN_USERS=${ADMIN_USERS:-}
+      - ADMIN_GROUP=${ADMIN_GROUP:-}
+      - ADMIN_DEFAULT_OU=${ADMIN_DEFAULT_OU:-}
+      # --- Lark ---
+      - LARK_DOMAIN=${LARK_DOMAIN:-https://open.larksuite.com}
+      - LARK_APP_ID=${LARK_APP_ID}
+      - LARK_APP_SECRET=${LARK_APP_SECRET}
+      # --- การแจ้งเตือน ---
+      - NOTIFY_DAYS=${NOTIFY_DAYS:-14,7,3,1}
+      - NOTIFY_HOUR=${NOTIFY_HOUR:-14}
+      - PORTAL_URL=${PORTAL_URL}
+      # --- Session ---
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      - SESSION_TIMEOUT_MIN=${SESSION_TIMEOUT_MIN:-30}
+    # ให้คอนเทนเนอร์ resolve ชื่อ DC ไปที่ IP ภายใน (cert ยังตรวจตามชื่อได้)
+    extra_hosts:
+      - "${AD_HOST}:${AD_IP}"
+    ports:
+      - "${HOST_PORT:-8090}:8080"          # เดิมใช้ 8080 → ตัวใหม่ออกที่ 8090 (แก้ได้ที่ HOST_PORT)
+
+  # เปิดใช้ proxy นี้เมื่อต้องการ HTTPS หน้าเว็บ (ดู Caddyfile)
+  # proxy:
+  #   image: caddy:2
+  #   container_name: pwd-proxy-v2
+  #   restart: unless-stopped
+  #   depends_on: [app]
+  #   ports:
+  #     - "8443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data_v2:/data
+# volumes:
+#   caddy_data_v2:

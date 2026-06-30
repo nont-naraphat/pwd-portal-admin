@@ -1,0 +1,6 @@
+# ใช้เมื่อเปิดบริการ proxy ใน docker-compose (ตัวใหม่/v2)
+# ตั้ง hostname ให้ไม่ชนกับตัวเดิม (เดิม=pwd.bearhouse.sunsu.local)
+pwd-admin.bearhouse.sunsu.local {
+    tls internal
+    reverse_proxy app:8080
+}
