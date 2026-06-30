@@ -386,6 +386,18 @@ def admin_force_change(username: str):
         conn.unbind()
 
 
+def admin_delete_user(username: str):
+    """ลบบัญชีผู้ใช้ออกจากโดเมนถาวร (กู้คืนไม่ได้)"""
+    conn = _service_conn()
+    try:
+        e = _find_dn(conn, username)
+        dn = str(e["distinguishedName"].value)
+        if not conn.delete(dn):
+            raise RuntimeError(conn.result.get("description", "ลบบัญชีไม่สำเร็จ"))
+    finally:
+        conn.unbind()
+
+
 def admin_create_user(first: str, last: str, username: str, password: str,
                       ou: str, mail: str = "", department: str = "", title: str = "",
                       must_change: bool = True, enabled: bool = True) -> dict:
