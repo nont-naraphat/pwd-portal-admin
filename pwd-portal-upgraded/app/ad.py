@@ -211,15 +211,33 @@ def _entry_to_user(e) -> dict:
     logon   = _filetime_to_dt(e["lastLogonTimestamp"].value)
     created = e["whenCreated"].value if "whenCreated" in e else None
 
+    # pwdLastSet=0 = "ต้องเปลี่ยนรหัสเมื่อล็อกอินครั้งถัดไป" (บัญชีสร้างใหม่/บังคับเปลี่ยน)
+    # ไม่ใช่หมดอายุ แต่ AD ติด bit UF_PASSWORD_EXPIRED ไว้ ทำให้ดูเหมือนหมดอายุ
+    raw_pls = e["pwdLastSet"].value
+    if isinstance(raw_pls, datetime):
+        must_change = raw_pls.year <= 1601          # ldap3 แปลง FILETIME 0 -> 1601-01-01
+    elif raw_pls is None:
+        must_change = False
+    else:
+        try:
+            must_change = int(raw_pls) == 0
+        except (TypeError, ValueError):
+            must_change = False
+
     days = (exp - now).days if exp else None
     if never_expires:
         days = 9999
         pwd_expired = False
+    if must_change:
+        pwd_expired = False                         # ไม่นับว่าหมดอายุ
+        days = None
 
     if not enabled:
         state = "disabled"
     elif locked:
         state = "locked"
+    elif must_change:
+        state = "mustchange"
     elif pwd_expired or (days is not None and days <= 0):
         state = "expired"
     elif days is not None and days <= 7:
@@ -239,8 +257,11 @@ def _entry_to_user(e) -> dict:
         "locked": locked,
         "pwd_never_expires": never_expires,
         "pwd_expired": pwd_expired,
+        "must_change": must_change,
         "state": state,
-        "expiry_date": exp.strftime("%-d/%-m/%Y") if exp else ("ไม่หมดอายุ" if never_expires else "-"),
+        "expiry_date": ("บังคับเปลี่ยน" if must_change
+                        else exp.strftime("%-d/%-m/%Y") if exp
+                        else ("ไม่หมดอายุ" if never_expires else "-")),
         "days_left": days if days is not None else None,
         "changed_date": changed.astimezone(BKK).strftime("%-d/%-m/%Y") if changed else "-",
         "last_logon": logon.astimezone(BKK).strftime("%-d/%-m/%Y %H:%M") if logon else "-",
