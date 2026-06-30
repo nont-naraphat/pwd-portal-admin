@@ -478,6 +478,7 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
           <table class="tbl">
             <thead><tr>
               <th data-sort="display_name">ผู้ใช้ <span class="ar">↕</span></th>
+              <th data-sort="mail">อีเมล <span class="ar">↕</span></th>
               <th class="col-dept" data-sort="department">แผนก / ตำแหน่ง <span class="ar">↕</span></th>
               <th class="col-ou" data-sort="ou">หน่วยงาน (OU) <span class="ar">↕</span></th>
               <th data-sort="state">สถานะบัญชี <span class="ar">↕</span></th>
@@ -605,6 +606,7 @@ function badge(u){
   return{c:'ok',t:'ใช้งานปกติ'};
 }
 function pwBadge(u){
+  if(u.must_change)return{c:'info',t:'ต้องเปลี่ยนรหัส'};
   if(u.pwd_never_expires)return{c:'info',t:'ไม่หมดอายุ'};
   if(u.pwd_expired||(u.days_left!=null&&u.days_left<=0))return{c:'crit',t:'หมดอายุแล้ว'};
   if(u.days_left!=null&&u.days_left<=7)return{c:'warn',t:'เหลือ '+u.days_left+' วัน'};
@@ -685,12 +687,13 @@ function render(){
     return(x>y?1:x<y?-1:0)*SORT.dir;
   });
   const tb=document.getElementById('tbody');
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="6"><div class="tbl-empty"><svg class="icon"><use href="#i-search"/></svg><div>ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข</div></div></td></tr>`;}
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="7"><div class="tbl-empty"><svg class="icon"><use href="#i-search"/></svg><div>ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข</div></div></td></tr>`;}
   else tb.innerHTML=rows.map(u=>{
     const ab=badge(u),pb=pwBadge(u);
     return `<tr onclick="openDrawer('${u.username}')">
       <td><div class="uc"><span class="avatar">${_ini(u.display_name)}</span>
         <span><div class="nm">${u.display_name}</div><div class="un">${u.username}</div></span></div></td>
+      <td class="muted mono" style="font-size:12px">${u.mail||'-'}</td>
       <td class="col-dept"><div>${u.department||'<span class="muted">-</span>'}</div><div class="un" style="font-family:inherit">${u.title||''}</div></td>
       <td class="col-ou muted">${u.ou||'-'}</td>
       <td><span class="sb ${ab.c}"><span class="dt"></span>${ab.t}</span></td>
@@ -770,7 +773,7 @@ async function doUnlock(username){
   try{await post('/api/admin/unlock',{username});toast('✅ ปลดล็อก '+username+' แล้ว');loadUsers();closeDrawer();}catch(e){toast('❌ '+e.message);}
 }
 async function doForce(username){
-  if(DEMO){demoMutate(username,u=>{u.days_left=0;u.pwd_expired=true;u.expiry_date='บังคับเปลี่ยน';});toast('✅ ตั้งให้ '+username+' เปลี่ยนรหัสครั้งถัดไป (ตัวอย่าง)');return;}
+  if(DEMO){demoMutate(username,u=>{u.must_change=true;u.pwd_expired=false;u.days_left=null;u.state='mustchange';u.expiry_date='บังคับเปลี่ยน';});toast('✅ ตั้งให้ '+username+' เปลี่ยนรหัสครั้งถัดไป (ตัวอย่าง)');return;}
   try{await post('/api/admin/force-change',{username});toast('✅ บังคับเปลี่ยนรหัสครั้งถัดไปแล้ว');loadUsers();closeDrawer();}catch(e){toast('❌ '+e.message);}
 }
 async function doToggle(username,enabled){
@@ -794,7 +797,7 @@ async function submitReset(){
   const username=CUR.username,new_password=document.getElementById('r-pw').value;
   const must_change=document.getElementById('r-mustchange').classList.contains('on');
   if(!new_password){toast('❌ กรุณาตั้งรหัสผ่านใหม่');return;}
-  if(DEMO){demoMutate(username,u=>{if(must_change){u.days_left=0;u.pwd_expired=true;u.expiry_date='บังคับเปลี่ยน';}else{u.days_left=90;u.pwd_expired=false;}u.locked=false;});
+  if(DEMO){demoMutate(username,u=>{if(must_change){u.must_change=true;u.pwd_expired=false;u.days_left=null;u.state='mustchange';u.expiry_date='บังคับเปลี่ยน';}else{u.must_change=false;u.days_left=90;u.pwd_expired=false;u.state='ok';}u.locked=false;});
     closeModal('m-reset');toast('✅ รีเซ็ตรหัสผ่าน '+username+' แล้ว (ตัวอย่าง)');return;}
   try{await post('/api/admin/reset-password',{username,new_password,must_change});closeModal('m-reset');closeDrawer();loadUsers();toast('✅ รีเซ็ตรหัสผ่าน '+username+' แล้ว');}catch(e){toast('❌ '+e.message);}
 }
@@ -827,9 +830,9 @@ async function submitCreate(){
   if(DEMO){
     USERS.unshift({username:body.username,display_name:(body.first+' '+body.last).trim(),mail:body.mail,
       department:body.department,title:body.title,ou:(OUS.find(o=>o.dn===body.ou)||{}).path||'Users',
-      enabled:body.enabled,locked:false,pwd_never_expires:false,pwd_expired:body.must_change,
-      state:body.must_change?'expired':'ok',expiry_date:body.must_change?'บังคับเปลี่ยน':'-',
-      days_left:body.must_change?0:90,changed_date:'วันนี้',last_logon:'ยังไม่เข้าระบบ',last_logon_iso:null});
+      enabled:body.enabled,locked:false,pwd_never_expires:false,pwd_expired:false,must_change:body.must_change,
+      state:body.must_change?'mustchange':'ok',expiry_date:body.must_change?'บังคับเปลี่ยน':'-',
+      days_left:body.must_change?null:90,changed_date:'วันนี้',last_logon:'ยังไม่เข้าระบบ',last_logon_iso:null});
     closeModal('m-create');render();toast('✅ สร้างบัญชี '+body.username+' แล้ว (ตัวอย่าง)');return;}
   try{const d=await post('/api/admin/create-user',body);closeModal('m-create');loadUsers();toast('✅ สร้างบัญชี '+d.username+' แล้ว');}catch(e){toast('❌ '+e.message);}
 }
