@@ -265,7 +265,7 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
 <style>
 /* ───────── Admin Console — เพิ่มเติมจากดีไซน์เดิม ───────── */
 #app.on{display:grid;grid-template-columns:248px 1fr}
-.demo-badge{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:600;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A}
+
 
 /* stat tiles */
 .stat-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px}
@@ -436,7 +436,7 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
       <span class="logo mlogo"></span>
       <span class="ttl" id="page-title">ภาพรวม</span>
       <span class="sp"></span>
-      <span class="demo-badge" id="demo-badge" style="display:none"><svg class="icon" style="width:14px;height:14px"><use href="#i-info"/></svg> โหมดตัวอย่าง</span>
+      
       <span class="chip" id="ad-chip"><span class="blip"></span> AD</span>
       <button class="user-chip"><span class="avatar" id="tb-av">AD</span>
         <span><span class="nm" id="tb-name">ผู้ดูแลระบบ</span><br/><span class="rl">Administrator</span></span></button>
@@ -595,7 +595,7 @@ input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(9
 
 <script>
 /* ════════ state ════════ */
-let USERS=[], OUS=[], DEMO=false, FILTER='all', SORT={key:'display_name',dir:1}, CUR=null, QTIMER=null;
+let USERS=[], OUS=[], FILTER='all', SORT={key:'display_name',dir:1}, CUR=null, QTIMER=null;
 
 /* ════════ helpers (เหมือนหน้าเดิม) ════════ */
 let tt;
@@ -693,15 +693,14 @@ function renderFilters(){
   }).join('');
 }
 function setFilter(f){FILTER=f;render();}
-function onSearch(){clearTimeout(QTIMER);QTIMER=setTimeout(()=>{ if(DEMO){render();}else{loadUsers();} },280);}
+function onSearch(){clearTimeout(QTIMER);QTIMER=setTimeout(()=>{ loadUsers(); },280);}
 
 function render(){
   renderStats();renderFilters();renderAttention();
   const ouf=document.getElementById('ou-filter').value;
-  const q=(document.getElementById('q').value||'').trim().toLowerCase();
   let rows=USERS.filter(u=>matchFilter(u,FILTER));
   if(ouf)rows=rows.filter(u=>u.ou===ouf);
-  if(DEMO&&q)rows=rows.filter(u=>(u.display_name+' '+u.username+' '+u.mail).toLowerCase().includes(q));
+  
   rows.sort((a,b)=>{
     let x=a[SORT.key],y=b[SORT.key];
     if(SORT.key==='days_left'){x=x==null?1e9:x;y=y==null?1e9:y;}
@@ -722,7 +721,7 @@ function render(){
       <td><span class="sb ${pb.c}"><span class="dt"></span>${pb.t}</span></td>
       <td class="col-logon muted">${u.last_logon||'-'}</td></tr>`;
   }).join('');
-  document.getElementById('tbl-foot').textContent=`แสดง ${rows.length} จาก ${USERS.length} บัญชี`+(DEMO?' · ข้อมูลตัวอย่าง':'');
+  document.getElementById('tbl-foot').textContent=`แสดง ${rows.length} จาก ${USERS.length} บัญชี`;
   document.querySelectorAll('.tbl th[data-sort]').forEach(th=>{
     const on=th.dataset.sort===SORT.key;th.classList.toggle('act-sort',on);
     th.querySelector('.ar').textContent=on?(SORT.dir>0?'↑':'↓'):'↕';
@@ -789,22 +788,17 @@ async function post(url,body){
   if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));
   return d;
 }
-function demoMutate(username,fn){const u=USERS.find(x=>x.username===username);if(u)fn(u);render();if(CUR&&CUR.username===username)openDrawer(username);}
 
 async function doUnlock(username){
-  if(DEMO){demoMutate(username,u=>u.locked=false);toast('✅ ปลดล็อก '+username+' แล้ว (ตัวอย่าง)');return;}
   try{await post('/api/admin/unlock',{username});toast('✅ ปลดล็อก '+username+' แล้ว');loadUsers();closeDrawer();}catch(e){toast('❌ '+e.message);}
 }
 async function doForce(username){
-  if(DEMO){demoMutate(username,u=>{u.must_change=true;u.pwd_expired=false;u.days_left=null;u.state='mustchange';u.expiry_date='บังคับเปลี่ยน';});toast('✅ ตั้งให้ '+username+' เปลี่ยนรหัสครั้งถัดไป (ตัวอย่าง)');return;}
   try{await post('/api/admin/force-change',{username});toast('✅ บังคับเปลี่ยนรหัสครั้งถัดไปแล้ว');loadUsers();closeDrawer();}catch(e){toast('❌ '+e.message);}
 }
 async function doToggle(username,enabled){
-  if(DEMO){demoMutate(username,u=>u.enabled=enabled);toast('✅ '+(enabled?'เปิด':'ปิด')+'ใช้งาน '+username+' (ตัวอย่าง)');return;}
   try{await post('/api/admin/enable',{username,enabled});toast('✅ '+(enabled?'เปิด':'ปิด')+'ใช้งานบัญชีแล้ว');loadUsers();closeDrawer();}catch(e){toast('❌ '+e.message);}
 }
 async function doNotify(username){
-  if(DEMO){toast('✅ ส่งการ์ดเตือนเข้า Lark ให้ '+username+' แล้ว (ตัวอย่าง)');return;}
   toast('กำลังส่งเข้า Lark…');
   try{const d=await post('/api/admin/notify',{username});toast('✅ ส่งเข้า Lark แล้ว ('+(d.email||'')+')');}catch(e){toast('❌ '+e.message);}
 }
@@ -826,7 +820,6 @@ function checkDelConfirm(){
 async function submitDelete(){
   const username=CUR.username;
   if(document.getElementById('del-confirm').value.trim()!==username){toast('❌ ชื่อผู้ใช้ยืนยันไม่ตรง');return;}
-  if(DEMO){USERS=USERS.filter(x=>x.username!==username);closeModal('m-delete');closeDrawer();render();toast('🗑️ ลบบัญชี '+username+' แล้ว (ตัวอย่าง)');return;}
   try{await post('/api/admin/delete-user',{username});closeModal('m-delete');closeDrawer();loadUsers();toast('🗑️ ลบบัญชี '+username+' แล้ว');}catch(e){toast('❌ '+e.message);}
 }
 
@@ -841,8 +834,6 @@ async function submitReset(){
   const username=CUR.username,new_password=document.getElementById('r-pw').value;
   const must_change=document.getElementById('r-mustchange').classList.contains('on');
   if(!new_password){toast('❌ กรุณาตั้งรหัสผ่านใหม่');return;}
-  if(DEMO){demoMutate(username,u=>{if(must_change){u.must_change=true;u.pwd_expired=false;u.days_left=null;u.state='mustchange';u.expiry_date='บังคับเปลี่ยน';}else{u.must_change=false;u.days_left=90;u.pwd_expired=false;u.state='ok';}u.locked=false;});
-    closeModal('m-reset');toast('✅ รีเซ็ตรหัสผ่าน '+username+' แล้ว (ตัวอย่าง)');return;}
   try{await post('/api/admin/reset-password',{username,new_password,must_change});closeModal('m-reset');closeDrawer();loadUsers();toast('✅ รีเซ็ตรหัสผ่าน '+username+' แล้ว');}catch(e){toast('❌ '+e.message);}
 }
 
@@ -871,13 +862,6 @@ async function submitCreate(){
     must_change:document.getElementById('c-mustchange').classList.contains('on'),
     enabled:document.getElementById('c-enabled').classList.contains('on')};
   if(!body.first||!body.username||!body.password){toast('❌ กรอกชื่อจริง ชื่อผู้ใช้ และรหัสผ่าน');return;}
-  if(DEMO){
-    USERS.unshift({username:body.username,display_name:(body.first+' '+body.last).trim(),mail:body.mail,
-      department:body.department,title:body.title,ou:(OUS.find(o=>o.dn===body.ou)||{}).path||'Users',
-      enabled:body.enabled,locked:false,pwd_never_expires:false,pwd_expired:false,must_change:body.must_change,
-      state:body.must_change?'mustchange':'ok',expiry_date:body.must_change?'บังคับเปลี่ยน':'-',
-      days_left:body.must_change?null:90,changed_date:'วันนี้',last_logon:'ยังไม่เข้าระบบ',last_logon_iso:null});
-    closeModal('m-create');render();toast('✅ สร้างบัญชี '+body.username+' แล้ว (ตัวอย่าง)');return;}
   try{const d=await post('/api/admin/create-user',body);closeModal('m-create');loadUsers();toast('✅ สร้างบัญชี '+d.username+' แล้ว');}catch(e){toast('❌ '+e.message);}
 }
 function closeModal(id){document.getElementById(id).classList.remove('on');}
@@ -893,82 +877,28 @@ async function loadUsers(force){
   try{
     const r=await fetch('/api/admin/users'+(q?('?q='+encodeURIComponent(q)):''));
     if(!r.ok)throw new Error(String(r.status));
-    const d=await r.json();USERS=d.users||[];DEMO=false;
-    document.getElementById('demo-badge').style.display='none';
+    const d=await r.json();USERS=d.users||[];
     document.getElementById('ad-chip').classList.add('on');
     document.getElementById('ad-chip').innerHTML='<span class="blip"></span> เชื่อม AD แล้ว';
     if(!OUS.length){try{const ro=await fetch('/api/admin/ous');if(ro.ok){const od=await ro.json();OUS=od.ous||[];fillOUFilter();}}catch(e){}}
     render();
-  }catch(e){ if(!USERS.length||force) enterDemo(); }
+  }catch(e){ showLoadError(); }
 }
 
-function enterDemo(){
-  DEMO=true;
-  document.getElementById('demo-badge').style.display='inline-flex';
+function showLoadError(){
   document.getElementById('ad-chip').classList.remove('on');
-  document.getElementById('ad-chip').innerHTML='<span class="blip"></span> ยังไม่เชื่อม AD';
-  OUS=[
-    {name:'Head Office',dn:'OU=Head Office,DC=bearhouse,DC=sunsu,DC=local',path:'Head Office'},
-    {name:'Marketing',dn:'OU=Marketing,OU=Head Office,DC=bearhouse,DC=sunsu,DC=local',path:'Head Office / Marketing'},
-    {name:'Finance',dn:'OU=Finance,OU=Head Office,DC=bearhouse,DC=sunsu,DC=local',path:'Head Office / Finance'},
-    {name:'IT',dn:'OU=IT,OU=Head Office,DC=bearhouse,DC=sunsu,DC=local',path:'Head Office / IT'},
-    {name:'Cafe',dn:'OU=Cafe,DC=bearhouse,DC=sunsu,DC=local',path:'Cafe'},
-    {name:'Warehouse',dn:'OU=Warehouse,DC=bearhouse,DC=sunsu,DC=local',path:'Warehouse'},
-  ];
-  USERS=DEMO_USERS();
-  fillOUFilter();render();
+  document.getElementById('ad-chip').innerHTML='<span class="blip"></span> เชื่อม AD ไม่สำเร็จ';
+  const tb=document.getElementById('tbody');
+  if(tb)tb.innerHTML='<tr><td colspan="7"><div class="tbl-empty"><svg class="icon"><use href="#i-info"/></svg><div>โหลดรายชื่อผู้ใช้ไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ AD แล้วลองใหม่</div></div></td></tr>';
+  const foot=document.getElementById('tbl-foot');if(foot)foot.textContent='';
+  toast('❌ โหลดข้อมูลไม่สำเร็จ');
 }
-
-function DEMO_USERS(){
-  const ous=['Head Office / Marketing','Head Office / Finance','Head Office / IT','Cafe','Warehouse'];
-  const data=[
-    ['Naraphat Tansopon','nont.naraphat','IT','IT Manager',2,42,'29/4/2026','30/6/2026 09:12'],
-    ['Supansa Wongchai','supansa.w','Marketing','Marketing Lead',0,3,'27/6/2026','30/6/2026 08:40'],
-    ['Kittipong Sangthong','kittipong.s','Finance','Accountant',1,-1,'1/4/2026','12/6/2026 17:05'],
-    ['Areeya Phongern','areeya.p','Marketing','Content Creator',0,21,'9/6/2026','30/6/2026 10:31'],
-    ['Thanakorn Meesup','thanakorn.m','Cafe','Barista',3,-4,'2/3/2026','3/5/2026 14:22'],
-    ['Pimchanok Rattana','pimchanok.r','Finance','Finance Officer',0,67,'15/4/2026','29/6/2026 16:48'],
-    ['Worawit Chaibun','worawit.c','Warehouse','Stock Keeper',4,9999,'-','28/6/2026 07:55'],
-    ['Sasiwimol Jindarat','sasiwimol.j','Marketing','Designer',0,1,'29/6/2026','30/6/2026 11:02'],
-    ['Decha Khammee','decha.k','IT','System Engineer',2,55,'6/5/2026','30/6/2026 09:33'],
-    ['Nattaya Boonsong','nattaya.b','Cafe','Cashier',0,14,'2/6/2026','30/6/2026 08:10'],
-    ['Phuwadon Srisuk','phuwadon.s','Warehouse','Driver',1,-12,'10/2/2026','18/6/2026 06:40'],
-    ['Chayada Inthong','chayada.i','Finance','Senior Accountant',0,88,'3/4/2026','30/6/2026 13:20'],
-    ['Ekkachai Pansa','ekkachai.p','IT','Helpdesk',0,6,'26/6/2026','30/6/2026 10:58'],
-    ['Wanida Kaewta','wanida.k','Marketing','PR Officer',0,33,'28/5/2026','30/6/2026 09:47'],
-    ['Suriya Thongdee','suriya.t','Cafe','Shift Lead',0,48,'13/5/2026','29/6/2026 15:30'],
-    ['Benjawan Mookda','benjawan.m','Finance','Cashier',3,5,'25/6/2026','30/6/2026 08:25'],
-    ['Anuwat Sukjai','anuwat.s','Warehouse','Supervisor',0,72,'20/4/2026','30/6/2026 07:12'],
-    ['Kanya Phromma','kanya.p','Marketing','Intern',0,-2,'10/3/2026','20/6/2026 17:50'],
-    ['Tossaporn Lertkul','tossaporn.l','IT','Network Admin',2,120,'2/3/2026','30/6/2026 09:05'],
-    ['Manee Chaiwong','manee.c','Cafe','Barista',0,2,'28/6/2026','30/6/2026 12:15'],
-    ['Jirayu Wattana','jirayu.w','Finance','Auditor',0,9999,'-','27/6/2026 14:00'],
-    ['Ploypailin Saetang','ploypailin.s','Marketing','Social Media',0,18,'12/6/2026','30/6/2026 11:40'],
-    ['Somchai Ratchanon','somchai.r','Warehouse','Packer',1,-8,'15/2/2026','10/6/2026 06:20'],
-    ['Yupin Nakorn','yupin.n','Cafe','Cashier',0,40,'21/5/2026','30/6/2026 08:33'],
-  ];
-  // flag: 0 ok, 1 disabled, 2 admin-ish ok, 3 locked, 4 never-expire
-  return data.map(([name,user,dept,title,flag,days,changed,logon])=>{
-    const never=days===9999;
-    const enabled=flag!==1;
-    const locked=flag===3;
-    const expired=!never&&days<=0;
-    let st='ok';
-    if(!enabled)st='disabled';else if(locked)st='locked';else if(expired)st='expired';else if(!never&&days<=7)st='soon';
-    return {username:user,display_name:name,mail:user+'@bearhouse.sunsu.local',department:dept,title:title,
-      ou:ous.find(o=>o.endsWith(dept))||(dept==='IT'?'Head Office / IT':dept),
-      enabled,locked,pwd_never_expires:never,pwd_expired:expired,state:st,
-      expiry_date:never?'ไม่หมดอายุ':(expired?'หมดอายุแล้ว':changed_to_exp(days)),
-      days_left:never?9999:days,changed_date:changed,last_logon:logon,last_logon_iso:'2026-06-30'};
-  });
-}
-function changed_to_exp(days){const d=new Date();d.setDate(d.getDate()+days);return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();}
 
 /* ════════ init ════════ */
 (function init(){
   const d=new Date();const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const td=document.getElementById('today');if(td)td.textContent=d.getDate()+' '+m[d.getMonth()]+' '+(d.getFullYear()+543);
-  // ตรวจสิทธิ์ผู้ดูแล; ถ้าเรียก API ไม่ได้ (เปิดไฟล์ตรง ๆ / ยังไม่ล็อกอิน) → โหมดตัวอย่าง
+  // ตรวจสิทธิ์ผู้ดูแล; ถ้าเรียก API ไม่ได้ (ยังไม่ล็อกอิน/เซสชันหมดอายุ) → กลับไปหน้าล็อกอิน
   fetch('/api/admin/whoami').then(r=>{
     if(!r.ok)throw new Error(String(r.status));
     return r.json();
@@ -976,7 +906,7 @@ function changed_to_exp(days){const d=new Date();d.setDate(d.getDate()+days);ret
     document.getElementById('tb-name').textContent=w.username;
     document.getElementById('tb-av').textContent=_ini(w.username);
     loadUsers();
-  }).catch(()=>{ enterDemo(); });
+  }).catch(()=>{ location.href='/'; });
 })();
 </script>
 </body>
